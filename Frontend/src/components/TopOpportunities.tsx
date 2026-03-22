@@ -1,13 +1,14 @@
-import { companies, type Company } from "@/data/mockData";
+import { type Company } from "@/data/mockData";
 import ScoreBadge from "./ScoreBadge";
 import ProbabilityMeter from "./ProbabilityMeter";
 import SignalBadge from "./SignalBadge";
 
 interface TopOpportunitiesProps {
+  companies: Company[];
   onCompanyClick: (companyId: string) => void;
 }
 
-const TopOpportunities = ({ onCompanyClick }: TopOpportunitiesProps) => {
+const TopOpportunities = ({ companies, onCompanyClick }: TopOpportunitiesProps) => {
   const top = [...companies].sort((a, b) => b.opportunityScore - a.opportunityScore).slice(0, 3);
 
   return (

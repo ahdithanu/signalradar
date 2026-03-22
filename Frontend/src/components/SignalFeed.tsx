@@ -1,12 +1,19 @@
-import { signalFeedItems } from "@/data/mockData";
+import type { Signal } from "@/data/mockData";
 import SignalBadge from "./SignalBadge";
 
+interface SignalFeedItem {
+  companyId: string;
+  companyName: string;
+  signal: Signal;
+}
+
 interface SignalFeedProps {
+  items: SignalFeedItem[];
   onCompanyClick: (companyId: string) => void;
 }
 
-const SignalFeed = ({ onCompanyClick }: SignalFeedProps) => {
-  const items = [...signalFeedItems, ...signalFeedItems]; // duplicate for seamless loop
+const SignalFeed = ({ items, onCompanyClick }: SignalFeedProps) => {
+  const doubled = [...items, ...items]; // duplicate for seamless loop
 
   return (
     <div className="border-b bg-card overflow-hidden">
@@ -16,7 +23,7 @@ const SignalFeed = ({ onCompanyClick }: SignalFeedProps) => {
       </div>
       <div className="overflow-hidden">
         <div className="flex animate-ticker hover:[animation-play-state:paused]">
-          {items.map((item, i) => (
+          {doubled.map((item, i) => (
             <button
               key={i}
               onClick={() => onCompanyClick(item.companyId)}

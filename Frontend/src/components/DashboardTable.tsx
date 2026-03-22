@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { companies, type Company, type SignalType, type Status } from "@/data/mockData";
+import { type Company, type SignalType, type Status } from "@/data/mockData";
 import ScoreBadge from "./ScoreBadge";
 import ProbabilityMeter from "./ProbabilityMeter";
 import SignalBadge from "./SignalBadge";
@@ -15,16 +15,13 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 
 interface DashboardTableProps {
+  companies: Company[];
   onCompanyClick: (companyId: string) => void;
   statuses: Record<string, Status>;
   onStatusChange: (companyId: string, status: Status) => void;
 }
 
-const industries = [...new Set(companies.map(c => c.industry))];
-const signalTypes: SignalType[] = ["funding", "hiring", "growth", "product_launch"];
-const fundingStages = [...new Set(companies.map(c => c.fundingStage))];
-
-const DashboardTable = ({ onCompanyClick, statuses, onStatusChange }: DashboardTableProps) => {
+const DashboardTable = ({ companies, onCompanyClick, statuses, onStatusChange }: DashboardTableProps) => {
   const [sortAsc, setSortAsc] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedIndustry, setSelectedIndustry] = useState<string>("");
@@ -36,6 +33,10 @@ const DashboardTable = ({ onCompanyClick, statuses, onStatusChange }: DashboardT
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+
+  const industries = useMemo(() => [...new Set(companies.map(c => c.industry))], [companies]);
+  const signalTypes = useMemo(() => [...new Set(companies.flatMap(c => c.signals.map(s => s.type)))] as SignalType[], [companies]);
+  const fundingStages = useMemo(() => [...new Set(companies.map(c => c.fundingStage))], [companies]);
 
   const filtered = useMemo(() => {
     let data = [...companies];
@@ -201,7 +202,7 @@ const DashboardTable = ({ onCompanyClick, statuses, onStatusChange }: DashboardT
       {filtersOpen && (
         <div className="bg-card border rounded-md p-3 mb-3 flex flex-wrap items-end gap-3">
           <FilterSelect label="Industry" value={selectedIndustry} onChange={setSelectedIndustry} options={industries} />
-          <FilterSelect label="Signal Type" value={selectedSignal} onChange={setSelectedSignal} options={signalTypes.map(s => s)} displayMap={{ funding: "Funding", hiring: "Hiring", growth: "Growth", product_launch: "Product Launch" }} />
+          <FilterSelect label="Signal Type" value={selectedSignal} onChange={setSelectedSignal} options={signalTypes.map(s => s)} displayMap={{ funding: "Funding", hiring: "Hiring", growth: "Growth", product_launch: "Product Launch", positioning_shift: "Positioning Shift", partnership: "Partnership" }} />
           <FilterSelect label="Funding Stage" value={selectedFunding} onChange={setSelectedFunding} options={fundingStages} />
           <FilterSelect label="Employees" value={employeeRange} onChange={setEmployeeRange} options={["1-50", "51-100", "101-200", "201-500"]} />
           <div>

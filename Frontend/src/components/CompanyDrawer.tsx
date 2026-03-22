@@ -1,4 +1,4 @@
-import { companies, type Status } from "@/data/mockData";
+import { type Company, type Status } from "@/data/mockData";
 import StatusSelect from "./StatusSelect";
 import ScoreBadge from "./ScoreBadge";
 import ProbabilityMeter from "./ProbabilityMeter";
@@ -10,12 +10,13 @@ import { toast } from "@/hooks/use-toast";
 
 interface CompanyDrawerProps {
   companyId: string | null;
+  companies: Company[];
   status: Status;
   onStatusChange: (companyId: string, status: Status) => void;
   onClose: () => void;
 }
 
-const CompanyDrawer = ({ companyId, status, onStatusChange, onClose }: CompanyDrawerProps) => {
+const CompanyDrawer = ({ companyId, companies, status, onStatusChange, onClose }: CompanyDrawerProps) => {
   const [intelOpen, setIntelOpen] = useState(false);
   const [notes, setNotes] = useState<Record<string, { text: string; timestamp: string }[]>>({});
   const [noteInput, setNoteInput] = useState("");

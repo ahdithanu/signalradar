@@ -1,4 +1,4 @@
-export type SignalType = "funding" | "hiring" | "growth" | "product_launch";
+export type SignalType = "funding" | "hiring" | "growth" | "product_launch" | "positioning_shift" | "partnership";
 export type Status = "New" | "Reviewing" | "Ready for Outreach" | "Dismissed";
 
 export interface Signal {
