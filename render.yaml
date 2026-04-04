@@ -58,7 +58,7 @@ services:
     rootDir: Backend
     buildCommand: pip install -r requirements.txt
     schedule: "0 6 * * *"
-    command: python -m app.jobs.daily_feed
+    startCommand: python -m app.jobs.daily_feed
     envVars:
       - key: APP_ENV
         value: production
