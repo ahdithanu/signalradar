@@ -1,0 +1,81 @@
+# Render Blueprint — full Signal Radar deployment
+# https://render.com/docs/blueprint-spec
+
+services:
+  # ── Backend API ────────────────────────────────────────────────────────
+  - type: web
+    name: signal-radar-api
+    runtime: python
+    region: oregon
+    plan: free
+    rootDir: Backend
+    buildCommand: pip install -r requirements.txt && alembic upgrade head
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: AUTH_ENABLED
+        value: "true"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: signal-radar-db
+          property: connectionString
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: FMP_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.13.0"
+
+  # ── Frontend (static site via Docker) ──────────────────────────────────
+  - type: web
+    name: signal-radar-app
+    runtime: docker
+    region: oregon
+    plan: free
+    rootDir: Frontend
+    dockerfilePath: ./Dockerfile
+    envVars:
+      # Build-time args (Vite bakes these into the JS bundle)
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: VITE_API_URL
+        sync: false
+
+  # ── Daily Feed Cron Job ($1/mo minimum on Render) ─────────────────────
+  - type: cron
+    name: signal-radar-daily-feed
+    runtime: python
+    region: oregon
+    plan: starter
+    rootDir: Backend
+    buildCommand: pip install -r requirements.txt
+    schedule: "0 6 * * *"
+    startCommand: python -m app.jobs.daily_feed
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: AUTH_ENABLED
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: signal-radar-db
+          property: connectionString
+      - key: FMP_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.13.0"
+
+databases:
+  - name: signal-radar-db
+    plan: free
+    region: oregon
+    databaseName: signal_radar
+    user: signal_user

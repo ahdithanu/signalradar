@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: signal_user
+      POSTGRES_PASSWORD: signal_pass
+      POSTGRES_DB: signal_radar
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U signal_user -d signal_radar"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://signal_user:signal_pass@db:5432/signal_radar
+      APP_ENV: development
+      APP_DEBUG: "true"
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:5173,http://localhost:8080"
+      AUTH_ENABLED: "false"
+      SUPABASE_JWT_SECRET: ""
+      SUPABASE_URL: ""
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
