@@ -64,11 +64,17 @@ services:
         value: production
       - key: AUTH_ENABLED
         value: "false"
+      # DATABASE_URL is set manually in the Render dashboard to the
+      # External Database URL. Paid crons cannot reach a free-tier
+      # Postgres via the internal DSN (network isolation), so
+      # `fromDatabase: connectionString` would inject an unreachable
+      # internal hostname. `sync: false` prevents the blueprint from
+      # overwriting the manual override.
       - key: DATABASE_URL
-        fromDatabase:
-          name: signal-radar-db
-          property: connectionString
+        sync: false
       - key: FMP_API_KEY
+        sync: false
+      - key: SUPABASE_URL
         sync: false
       - key: PYTHON_VERSION
         value: "3.13.0"

@@ -23,6 +23,7 @@ import argparse
 import json
 import logging
 import sys
+import urllib.request
 import uuid
 
 from app.config import settings
@@ -44,6 +45,26 @@ logger = logging.getLogger(__name__)
 # All feed-discovered accounts and signals belong to this workspace.
 SYSTEM_WORKSPACE_ID = uuid.UUID("cccccccc-0000-0000-0000-000000000001")
 SYSTEM_WORKSPACE_NAME = "Signal Radar Feed"
+
+
+def _keepalive_ping_supabase() -> None:
+    """Free-tier Supabase projects pause after ~7 days without API activity.
+    A daily ping on the auth health endpoint resets that timer."""
+    url = settings.supabase_url
+    if not url:
+        logger.warning("SUPABASE_URL not set; skipping keepalive ping")
+        return
+
+    health_url = f"{url.rstrip('/')}/auth/v1/health"
+    try:
+        req = urllib.request.Request(
+            health_url,
+            headers={"User-Agent": "signal-radar-keepalive/1"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            logger.info("Supabase keepalive ping: %s %s", resp.status, health_url)
+    except Exception as e:
+        logger.warning("Supabase keepalive ping failed: %s", e)
 
 
 def _ensure_system_workspace(db) -> None:
@@ -99,6 +120,8 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    _keepalive_ping_supabase()
 
     # Select extractor
     if args.real:
