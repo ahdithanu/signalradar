@@ -77,7 +77,7 @@ services:
 
 databases:
   - name: signal-radar-db
-    plan: basic_256mb
+    plan: basic-256mb
     region: oregon
     databaseName: signal_radar
     user: signal_user
