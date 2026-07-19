@@ -19,7 +19,7 @@ services:
         value: "true"
       - key: DATABASE_URL
         fromDatabase:
-          name: signal-radar-db
+          name: signal-radar-pg
           property: connectionString
       - key: SUPABASE_URL
         sync: false
@@ -66,7 +66,7 @@ services:
         value: "false"
       - key: DATABASE_URL
         fromDatabase:
-          name: signal-radar-db
+          name: signal-radar-pg
           property: connectionString
       - key: FMP_API_KEY
         sync: false
@@ -76,7 +76,7 @@ services:
         value: "3.13.0"
 
 databases:
-  - name: signal-radar-db
+  - name: signal-radar-pg
     plan: basic-256mb
     region: oregon
     databaseName: signal_radar
