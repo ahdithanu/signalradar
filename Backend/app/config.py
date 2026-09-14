@@ -47,14 +47,13 @@ class Settings(BaseSettings):
                 "AUTH_ENABLED must be true in production. "
                 "Running without authentication is not allowed."
             )
-        if not self.supabase_jwt_secret or self.supabase_jwt_secret == "your-jwt-secret-from-supabase-settings":
-            errors.append(
-                "SUPABASE_JWT_SECRET is missing or still set to the placeholder value."
-            )
         if not self.supabase_url or self.supabase_url == "https://your-project.supabase.co":
             errors.append(
-                "SUPABASE_URL is missing or still set to the placeholder value."
+                "SUPABASE_URL is missing or still set to the placeholder value. "
+                "It is required to fetch the JWKS for asymmetric token verification."
             )
+        # SUPABASE_JWT_SECRET is only needed for legacy HS256-signing projects.
+        # Asymmetric-mode projects (ES256/RS256) verify via JWKS and don't use it.
         return errors
 
 
