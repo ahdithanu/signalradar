@@ -14,7 +14,10 @@ Usage in routes:
 
 from __future__ import annotations
 
+import json
 import logging
+import time
+import urllib.request
 import uuid
 from dataclasses import dataclass
 
@@ -44,22 +47,119 @@ class WorkspaceContext:
     db: Session
 
 
-def _decode_supabase_jwt(token: str) -> dict:
-    """Decode and validate a Supabase JWT. Returns claims dict."""
-    try:
-        payload = jwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            audience="authenticated",
+# JWKS cache for asymmetric Supabase JWT verification.
+# Supabase projects created after their 2025 asymmetric-key rollout sign JWTs
+# with an ES256 key; the shared HS256 `SUPABASE_JWT_SECRET` no longer applies.
+# We fetch the public keys once per hour and match tokens by `kid`.
+_JWKS_TTL_SEC = 3600
+_ASYMMETRIC_ALGS = {"ES256", "RS256", "EdDSA"}
+_jwks_cache: dict | None = None
+_jwks_fetched_at: float = 0.0
+
+
+def _fetch_jwks(force: bool = False) -> dict:
+    global _jwks_cache, _jwks_fetched_at
+    now = time.time()
+    if _jwks_cache is not None and not force and (now - _jwks_fetched_at) < _JWKS_TTL_SEC:
+        return _jwks_cache
+    if not settings.supabase_url:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="SUPABASE_URL is not configured",
         )
-        return payload
+    url = f"{settings.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+    with urllib.request.urlopen(url, timeout=5) as resp:
+        _jwks_cache = json.loads(resp.read())
+    _jwks_fetched_at = now
+    return _jwks_cache
+
+
+def _find_jwk_for_kid(kid: str) -> dict | None:
+    jwks = _fetch_jwks()
+    for key in jwks.get("keys", []):
+        if key.get("kid") == kid:
+            return key
+    # kid not found — key may have rotated; force one refresh and retry
+    jwks = _fetch_jwks(force=True)
+    for key in jwks.get("keys", []):
+        if key.get("kid") == kid:
+            return key
+    return None
+
+
+def _decode_supabase_jwt(token: str) -> dict:
+    """Decode and validate a Supabase JWT. Returns claims dict.
+
+    Supports both signing modes:
+      - Asymmetric (ES256/RS256/EdDSA): verify via JWKS public key
+      - Legacy HS256: verify via SUPABASE_JWT_SECRET
+    """
+    try:
+        header = jwt.get_unverified_header(token)
     except JWTError as e:
-        logger.warning("JWT decode failed: %s", e)
+        logger.warning("JWT header parse failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
+            detail="Invalid token",
         )
+
+    alg = (header.get("alg") or "").upper()
+    kid = header.get("kid")
+
+    if alg in _ASYMMETRIC_ALGS:
+        if not kid:
+            logger.warning("Asymmetric token missing 'kid' header")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+            )
+        key = _find_jwk_for_kid(kid)
+        if key is None:
+            logger.warning("JWT kid %s not found in JWKS", kid)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Unknown token signing key",
+            )
+        try:
+            return jwt.decode(
+                token,
+                key,
+                algorithms=[alg],
+                audience="authenticated",
+            )
+        except JWTError as e:
+            logger.warning("JWT decode failed (%s): %s", alg, e)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            )
+
+    if alg == "HS256":
+        if not settings.supabase_jwt_secret:
+            logger.warning("HS256 token but SUPABASE_JWT_SECRET is not set")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Server not configured for HS256 tokens",
+            )
+        try:
+            return jwt.decode(
+                token,
+                settings.supabase_jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+        except JWTError as e:
+            logger.warning("JWT decode failed (HS256): %s", e)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            )
+
+    logger.warning("Unsupported JWT alg: %s", alg)
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=f"Unsupported token algorithm: {alg}",
+    )
 
 
 def _upsert_user(db: Session, user_id: uuid.UUID, email: str) -> User:

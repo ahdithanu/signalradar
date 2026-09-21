@@ -14,17 +14,9 @@ class TestProductionSafetyChecks:
         errors = s.validate_production_config()
         assert any("AUTH_ENABLED" in e for e in errors)
 
-    def test_production_with_placeholder_jwt_secret_fails(self):
-        s = Settings(
-            app_env="production",
-            auth_enabled=True,
-            supabase_jwt_secret="your-jwt-secret-from-supabase-settings",
-            supabase_url="https://real.supabase.co",
-        )
-        errors = s.validate_production_config()
-        assert any("SUPABASE_JWT_SECRET" in e for e in errors)
-
-    def test_production_with_empty_jwt_secret_fails(self):
+    def test_production_with_empty_jwt_secret_passes(self):
+        # Asymmetric-mode Supabase projects (ES256/RS256 signed by JWKS keys)
+        # don't use SUPABASE_JWT_SECRET — it's only needed as an HS256 fallback.
         s = Settings(
             app_env="production",
             auth_enabled=True,
@@ -32,7 +24,7 @@ class TestProductionSafetyChecks:
             supabase_url="https://real.supabase.co",
         )
         errors = s.validate_production_config()
-        assert any("SUPABASE_JWT_SECRET" in e for e in errors)
+        assert errors == []
 
     def test_production_with_placeholder_url_fails(self):
         s = Settings(
