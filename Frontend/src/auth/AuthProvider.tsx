@@ -68,10 +68,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    // Clear local state first so the UI logs the user out immediately,
+    // even if the remote invalidation call fails (stale session, network
+    // error, Supabase 5xx). ProtectedRoute will then redirect to /login.
     clearQueryCache();
-    await supabase.auth.signOut();
     setUser(null);
     setSession(null);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.warn("Supabase signOut returned an error:", error.message);
+      }
+    } catch (e) {
+      console.warn("Supabase signOut threw:", e);
+    }
   }, []);
 
   const accessToken = session?.access_token ?? null;
