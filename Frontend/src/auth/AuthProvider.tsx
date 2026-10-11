@@ -24,6 +24,8 @@ interface AuthState {
   loading: boolean;
   signUp: (email: string, password: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  verifyOtp: (email: string, code: string) => Promise<{ error: string | null }>;
+  resendOtp: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -67,6 +69,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   }, []);
 
+  const verifyOtp = useCallback(async (email: string, code: string) => {
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: code,
+      type: "signup",
+    });
+    if (error) return { error: error.message };
+    return { error: null };
+  }, []);
+
+  const resendOtp = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.resend({ email, type: "signup" });
+    if (error) return { error: error.message };
+    return { error: null };
+  }, []);
+
   const signOut = useCallback(async () => {
     // Clear local state first so the UI logs the user out immediately,
     // even if the remote invalidation call fails (stale session, network
@@ -88,7 +106,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, session, accessToken, loading, signUp, signIn, signOut }}
+      value={{
+        user,
+        session,
+        accessToken,
+        loading,
+        signUp,
+        signIn,
+        verifyOtp,
+        resendOtp,
+        signOut,
+      }}
     >
       {children}
     </AuthContext.Provider>
